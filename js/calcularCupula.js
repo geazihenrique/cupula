@@ -1,135 +1,142 @@
-(function () {
-  const { round } = window.CupulaUtils;
+import { round } from "./utils.js";
 
-  function getRecommendation(maiorDimensao, espessura) {
-    if (maiorDimensao >= 800 && espessura < 6) {
-      return {
-        espessuraMinima: 6,
-        message: `Atenção na espessura. Esta cúpula possui uma face com até ${Math.round(maiorDimensao)} mm. Para mais rigidez, recomendamos acrílico de 6 mm ou superior.`,
-      };
-    }
-
-    if (maiorDimensao >= 600 && espessura < 5) {
-      return {
-        espessuraMinima: 5,
-        message: `Atenção na espessura. Esta cúpula possui uma face com até ${Math.round(maiorDimensao)} mm. Para mais rigidez, recomendamos acrílico de 5 mm ou superior.`,
-      };
-    }
-
-    if (maiorDimensao >= 400 && espessura < 4) {
-      return {
-        espessuraMinima: 4,
-        message: `Atenção na espessura. Esta cúpula possui uma face com até ${Math.round(maiorDimensao)} mm. Para mais rigidez, recomendamos acrílico de 4 mm ou superior.`,
-      };
-    }
-
-    return null;
-  }
-
-  function buildPiece(nome, quantidade, largura, alturaProfundidade, espessura, observacao) {
+function getRecommendation(maiorDimensao, espessura) {
+  if (maiorDimensao >= 800 && espessura < 6) {
     return {
-      nome,
-      quantidade,
-      largura: round(largura),
-      alturaProfundidade: round(alturaProfundidade),
-      espessura: round(espessura),
-      observacao,
+      espessuraMinima: 6,
+      mensagem: `Atenção na espessura. Esta cúpula possui uma face com até ${Math.round(maiorDimensao)} mm. Para mais rigidez, recomendamos acrílico de 6 mm ou superior.`,
     };
   }
 
-  function calcularCupula(formData) {
-    const larguraInput = Number(formData.largura);
-    const profundidadeInput = Number(formData.profundidade);
-    const alturaInput = Number(formData.altura);
-    const espessura = Number(formData.espessura);
-    const aberta = formData.tipoCupula === "aberta";
-    const medidaExterna = formData.tipoMedida === "externa";
-    const montagemDentro = formData.tipoMontagem === "dentro";
-    const errors = [];
+  if (maiorDimensao >= 600 && espessura < 5) {
+    return {
+      espessuraMinima: 5,
+      mensagem: `Atenção na espessura. Esta cúpula possui uma face com até ${Math.round(maiorDimensao)} mm. Para mais rigidez, recomendamos acrílico de 5 mm ou superior.`,
+    };
+  }
 
-    if ([larguraInput, profundidadeInput, alturaInput, espessura].some((value) => !Number.isFinite(value) || value <= 0)) {
-      errors.push("Informe valores numéricos maiores que zero para largura, profundidade, altura e espessura.");
-    }
+  if (maiorDimensao >= 400 && espessura < 4) {
+    return {
+      espessuraMinima: 4,
+      mensagem: `Atenção na espessura. Esta cúpula possui uma face com até ${Math.round(maiorDimensao)} mm. Para mais rigidez, recomendamos acrílico de 4 mm ou superior.`,
+    };
+  }
 
-    const larguraExterna = medidaExterna ? larguraInput : larguraInput + (2 * espessura);
-    const profundidadeExterna = medidaExterna ? profundidadeInput : profundidadeInput + (2 * espessura);
-    const alturaExterna = medidaExterna
-      ? alturaInput
-      : alturaInput + (aberta ? espessura : 2 * espessura);
+  return null;
+}
 
-    const alturaParede = aberta ? alturaExterna - espessura : alturaExterna - (2 * espessura);
-    const larguraFrente = montagemDentro ? larguraExterna : larguraExterna - (2 * espessura);
-    const profundidadeLateral = montagemDentro ? profundidadeExterna - (2 * espessura) : profundidadeExterna;
+function createPiece(nome, quantidade, largura, alturaProfundidade, espessura, observacao) {
+  return {
+    nome,
+    quantidade,
+    largura: round(largura),
+    alturaProfundidade: round(alturaProfundidade),
+    espessura: round(espessura),
+    observacao,
+  };
+}
 
-    const pieces = [
-      buildPiece("Base", 1, larguraExterna, profundidadeExterna, espessura, "Placa inferior"),
-    ];
+export function calcularCupula(configuracao) {
+  const larguraInformada = Number(configuracao.largura);
+  const profundidadeInformada = Number(configuracao.profundidade);
+  const alturaInformada = Number(configuracao.altura);
+  const espessura = Number(configuracao.espessura);
+  const tipoMedida = configuracao.tipoMedida;
+  const tipoCupula = configuracao.tipoCupula;
+  const tipoMontagem = configuracao.tipoMontagem;
+  const isAberta = tipoCupula === "aberta";
+  const isExterna = tipoMedida === "externa";
+  const lateraisPorDentro = tipoMontagem === "dentro";
+  const erros = [];
 
-    if (!aberta) {
-      pieces.push(buildPiece("Tampa", 1, larguraExterna, profundidadeExterna, espessura, "Placa superior"));
-    }
+  if ([larguraInformada, profundidadeInformada, alturaInformada, espessura].some((valor) => !Number.isFinite(valor) || valor <= 0)) {
+    erros.push("Informe valores maiores que zero para largura, profundidade, altura e espessura.");
+  }
 
-    pieces.push(
-      buildPiece("Frente", 1, larguraFrente, alturaParede, espessura, montagemDentro ? "Recebe as laterais por dentro" : "Fica entre as laterais"),
-      buildPiece("Fundo", 1, larguraFrente, alturaParede, espessura, montagemDentro ? "Recebe as laterais por dentro" : "Fica entre as laterais"),
-      buildPiece("Lateral", 2, profundidadeLateral, alturaParede, espessura, montagemDentro ? "Entre frente e fundo" : "Por fora da frente e fundo")
-    );
+  const larguraExterna = isExterna ? larguraInformada : larguraInformada + (2 * espessura);
+  const profundidadeExterna = isExterna ? profundidadeInformada : profundidadeInformada + (2 * espessura);
+  const alturaExterna = isExterna
+    ? alturaInformada
+    : alturaInformada + (isAberta ? espessura : 2 * espessura);
 
-    pieces.forEach((piece) => {
-      if (piece.largura <= 0 || piece.alturaProfundidade <= 0) {
-        errors.push(`Dimensão inválida encontrada na peça "${piece.nome}". Ajuste medidas, espessura ou tipo de montagem.`);
+  const alturaParede = isAberta
+    ? alturaExterna - espessura
+    : alturaExterna - (2 * espessura);
+
+  const larguraFrenteFundo = lateraisPorDentro
+    ? larguraExterna
+    : larguraExterna - (2 * espessura);
+
+  const profundidadeLaterais = lateraisPorDentro
+    ? profundidadeExterna - (2 * espessura)
+    : profundidadeExterna;
+
+  const medidasExternas = {
+    largura: round(larguraExterna),
+    profundidade: round(profundidadeExterna),
+    altura: round(alturaExterna),
+  };
+
+  const medidasInternas = isExterna
+    ? {
+        largura: round(larguraExterna - (2 * espessura)),
+        profundidade: round(profundidadeExterna - (2 * espessura)),
+        altura: round(alturaExterna - (isAberta ? espessura : 2 * espessura)),
       }
-    });
+    : {
+        largura: round(larguraInformada),
+        profundidade: round(profundidadeInformada),
+        altura: round(alturaInformada),
+      };
 
-    if (alturaParede <= 0) {
-      errors.push("A altura calculada das paredes ficou menor ou igual a zero. Revise altura e espessura.");
-    }
-
-    const external = {
-      largura: round(larguraExterna),
-      profundidade: round(profundidadeExterna),
-      altura: round(alturaExterna),
-    };
-
-    const internal = medidaExterna
-      ? {
-          largura: round(larguraExterna - (2 * espessura)),
-          profundidade: round(profundidadeExterna - (2 * espessura)),
-          altura: round(alturaExterna - (aberta ? espessura : 2 * espessura)),
-        }
-      : {
-          largura: round(larguraInput),
-          profundidade: round(profundidadeInput),
-          altura: round(alturaInput),
-        };
-
-    if (internal.largura <= 0 || internal.profundidade <= 0 || internal.altura <= 0) {
-      errors.push("As medidas internas resultaram em valores inválidos. A espessura está alta demais para as dimensões informadas.");
-    }
-
-    const maiorDimensao = Math.max(external.largura, external.profundidade, external.altura);
-    const recommendation = getRecommendation(maiorDimensao, espessura);
-
-    return {
-      input: {
-        largura: larguraInput,
-        profundidade: profundidadeInput,
-        altura: alturaInput,
-      },
-      external,
-      internal,
-      espessura,
-      alturaParede: round(alturaParede),
-      tipoMedida: formData.tipoMedida,
-      tipoCupula: formData.tipoCupula,
-      tipoMontagem: formData.tipoMontagem,
-      recommendation,
-      pieces,
-      totalPecas: pieces.reduce((acc, piece) => acc + piece.quantidade, 0),
-      isValid: errors.length === 0,
-      errors,
-    };
+  if (medidasInternas.largura <= 0 || medidasInternas.profundidade <= 0 || medidasInternas.altura <= 0) {
+    erros.push("As medidas internas resultaram em valores inválidos. Revise as dimensões e a espessura.");
   }
 
-  window.CupulaCalculator = { calcularCupula };
-})();
+  if (alturaParede <= 0) {
+    erros.push("A altura útil das paredes ficou menor ou igual a zero. Revise altura e espessura.");
+  }
+
+  const pecas = [
+    createPiece("Base", 1, larguraExterna, profundidadeExterna, espessura, "Placa inferior"),
+    createPiece("Frente", 1, larguraFrenteFundo, alturaParede, espessura, lateraisPorDentro ? "Laterais por dentro" : "Entre as laterais"),
+    createPiece("Fundo", 1, larguraFrenteFundo, alturaParede, espessura, lateraisPorDentro ? "Laterais por dentro" : "Entre as laterais"),
+    createPiece("Lateral", 2, profundidadeLaterais, alturaParede, espessura, lateraisPorDentro ? "Entre frente e fundo" : "Por fora da frente e fundo"),
+  ];
+
+  if (!isAberta) {
+    pecas.splice(1, 0, createPiece("Tampa", 1, larguraExterna, profundidadeExterna, espessura, "Placa superior"));
+  }
+
+  pecas.forEach((peca) => {
+    if (peca.largura <= 0 || peca.alturaProfundidade <= 0) {
+      erros.push(`A peça "${peca.nome}" ficou com dimensão inválida. Ajuste medidas, espessura ou montagem.`);
+    }
+  });
+
+  const maiorDimensao = Math.max(
+    medidasExternas.largura,
+    medidasExternas.profundidade,
+    medidasExternas.altura
+  );
+
+  return {
+    configuracao: {
+      largura: larguraInformada,
+      profundidade: profundidadeInformada,
+      altura: alturaInformada,
+      espessura,
+      tipoMedida,
+      tipoCupula,
+      tipoMontagem,
+    },
+    medidasExternas,
+    medidasInternas,
+    alturaParede: round(alturaParede),
+    pecas,
+    recomendacao: getRecommendation(maiorDimensao, espessura),
+    isValido: erros.length === 0,
+    erros,
+    totalPecas: pecas.reduce((acumulador, peca) => acumulador + peca.quantidade, 0),
+  };
+}
