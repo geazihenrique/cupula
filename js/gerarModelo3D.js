@@ -1,7 +1,8 @@
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 
 const BRAND = 0x6f57d9;
-const EDGE = 0x7f66f1;
+const EDGE = 0x4c1d95;
 const HIGHLIGHT = 0xb38bff;
 
 function drawRoundedRect(context, x, y, width, height, radius) {
@@ -69,11 +70,18 @@ function createDimensionLine(start, end, text) {
 
 function createPanel(width, height, depth, label) {
   const geometry = new THREE.BoxGeometry(width, height, depth);
+  const toneByLabel = {
+    Base: 0x6f57d9,
+    Frente: 0x7c3aed,
+    Fundo: 0x8b5cf6,
+    Lateral: 0x6d28d9,
+    Tampa: 0xa78bfa,
+  };
   const material = new THREE.MeshPhysicalMaterial({
-    color: BRAND,
+    color: toneByLabel[label] || BRAND,
     transparent: true,
-    opacity: 0.40,
-    transmission: 0.82,
+    opacity: 0.44,
+    transmission: 0.78,
     roughness: 0.08,
     thickness: 1.6,
     clearcoat: 1,
@@ -82,6 +90,7 @@ function createPanel(width, height, depth, label) {
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.userData.label = label;
+  mesh.userData.baseColor = toneByLabel[label] || BRAND;
 
   const edges = new THREE.LineSegments(
     new THREE.EdgesGeometry(geometry),
@@ -144,8 +153,8 @@ function buildPieceMap(calculo) {
 }
 
 function setPieceVisual(piece, highlighted) {
-  piece.mesh.material.color.setHex(highlighted ? HIGHLIGHT : BRAND);
-  piece.mesh.material.opacity = highlighted ? 0.58 : 0.40;
+  piece.mesh.material.color.setHex(highlighted ? HIGHLIGHT : piece.mesh.userData.baseColor);
+  piece.mesh.material.opacity = highlighted ? 0.58 : 0.44;
 }
 
 export class GeradorModelo3D {
@@ -154,12 +163,11 @@ export class GeradorModelo3D {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 5000);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this.controls = null;
     this.root = new THREE.Group();
     this.dimensions = new THREE.Group();
     this.pieces = {};
     this.viewMode = "montada";
-    this.rotation = { x: -0.28, y: 0.56 };
-    this.pointer = { x: 0, y: 0, active: false };
     this.sequenceTimer = null;
     this.raf = null;
     this.initialize();
@@ -184,55 +192,18 @@ export class GeradorModelo3D {
     fill.position.set(-240, 180, -180);
     this.scene.add(ambient, key, fill);
 
-    const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(360, 72),
-      new THREE.MeshBasicMaterial({ color: 0xeae8f6, transparent: true, opacity: 0.82 })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -2;
-    this.scene.add(floor);
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.06;
+    this.controls.autoRotate = false;
+    this.controls.enablePan = false;
+    this.controls.minDistance = 180;
+    this.controls.maxDistance = 900;
+    this.controls.target.set(0, 60, 0);
 
-    this.bindPointerEvents();
     window.addEventListener("resize", () => this.handleResize());
     this.handleResize();
     this.animate();
-  }
-
-  bindPointerEvents() {
-    this.container.addEventListener("pointerdown", (event) => {
-      this.pointer.active = true;
-      this.pointer.x = event.clientX;
-      this.pointer.y = event.clientY;
-      this.container.setPointerCapture(event.pointerId);
-    });
-
-    this.container.addEventListener("pointermove", (event) => {
-      if (!this.pointer.active) {
-        return;
-      }
-
-      const deltaX = event.clientX - this.pointer.x;
-      const deltaY = event.clientY - this.pointer.y;
-      this.pointer.x = event.clientX;
-      this.pointer.y = event.clientY;
-      this.rotation.y += deltaX * 0.01;
-      this.rotation.x = Math.max(-0.95, Math.min(0.2, this.rotation.x + (deltaY * 0.008)));
-      this.applyRotation();
-    });
-
-    const stop = () => {
-      this.pointer.active = false;
-    };
-
-    this.container.addEventListener("pointerup", stop);
-    this.container.addEventListener("pointercancel", stop);
-    this.container.addEventListener("pointerleave", stop);
-  }
-
-  applyRotation() {
-    this.root.rotation.x = this.rotation.x;
-    this.root.rotation.y = this.rotation.y;
-    this.dimensions.rotation.y = this.rotation.y;
   }
 
   handleResize() {
@@ -245,10 +216,7 @@ export class GeradorModelo3D {
 
   animate() {
     this.raf = requestAnimationFrame(() => this.animate());
-    if (!this.pointer.active) {
-      this.rotation.y += 0.002;
-      this.applyRotation();
-    }
+    this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -320,9 +288,11 @@ export class GeradorModelo3D {
       this.pieces[key] = piece;
     });
 
-    this.root.position.y = Math.max(-calculo.medidasExternas.altura * 0.16, -28);
-    this.camera.lookAt(0, Math.max(calculo.medidasExternas.altura / 3, 30), 0);
-    this.applyRotation();
+    this.root.position.y = Math.max(-calculo.medidasExternas.altura * 0.14, -24);
+    this.root.rotation.set(0, 0, 0);
+    this.dimensions.rotation.set(0, 0, 0);
+    this.controls.target.set(0, Math.max(calculo.medidasExternas.altura / 3, 34), 0);
+    this.controls.update();
     this.applyViewMode(mode);
   }
 }
