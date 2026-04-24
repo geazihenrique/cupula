@@ -2,6 +2,27 @@
   const COLOR_BRAND = 0x6f57d9;
   const COLOR_EDGE = 0x7f66f1;
   const COLOR_HIGHLIGHT = 0xb38bff;
+  const CAMERA_DISTANCE = 470;
+
+  function drawRoundedRect(context, x, y, width, height, radius) {
+    if (typeof context.roundRect === "function") {
+      context.beginPath();
+      context.roundRect(x, y, width, height, radius);
+      return;
+    }
+
+    const safeRadius = Math.min(radius, width / 2, height / 2);
+    context.beginPath();
+    context.moveTo(x + safeRadius, y);
+    context.lineTo(x + width - safeRadius, y);
+    context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+    context.lineTo(x + width, y + height - safeRadius);
+    context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+    context.lineTo(x + safeRadius, y + height);
+    context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+    context.lineTo(x, y + safeRadius);
+    context.quadraticCurveTo(x, y, x + safeRadius, y);
+  }
 
   function createLabelSprite(text) {
     const canvas = document.createElement("canvas");
@@ -9,8 +30,7 @@
     canvas.width = 256;
     canvas.height = 96;
     context.fillStyle = "rgba(255,255,255,0.9)";
-    context.beginPath();
-    context.roundRect(8, 8, 240, 80, 28);
+    drawRoundedRect(context, 8, 8, 240, 80, 28);
     context.fill();
     context.strokeStyle = "rgba(111,87,217,0.22)";
     context.lineWidth = 2;
@@ -141,7 +161,6 @@
     this.scene = null;
     this.camera = null;
     this.renderer = null;
-    this.controls = null;
     this.root = new THREE.Group();
     this.dimensionGroup = new THREE.Group();
     this.pieces = {};
@@ -149,6 +168,9 @@
     this.sequenceIndex = 0;
     this.sequenceTimer = null;
     this.animationFrame = null;
+    this.isPointerDown = false;
+    this.pointer = { x: 0, y: 0 };
+    this.rotation = { x: -0.28, y: 0.62 };
     this.init();
   }
 
@@ -162,17 +184,12 @@
     const height = this.container.clientHeight;
 
     this.camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 5000);
-    this.camera.position.set(340, 280, 360);
+    this.camera.position.set(0, 190, CAMERA_DISTANCE);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(width, height);
     this.container.appendChild(this.renderer.domElement);
-
-    this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = true;
-    this.controls.minDistance = 120;
-    this.controls.maxDistance = 1200;
 
     const ambient = new THREE.AmbientLight(0xffffff, 1.6);
     const spot = new THREE.DirectionalLight(0xffffff, 1.5);
@@ -190,7 +207,46 @@
     this.scene.add(floor);
 
     window.addEventListener("resize", this.handleResize.bind(this));
+    this.bindPointerControls();
+    this.updateViewTransform();
     this.animate();
+  };
+
+  GeradorModelo3D.prototype.bindPointerControls = function bindPointerControls() {
+    this.container.addEventListener("pointerdown", (event) => {
+      this.isPointerDown = true;
+      this.pointer.x = event.clientX;
+      this.pointer.y = event.clientY;
+      this.container.setPointerCapture(event.pointerId);
+    });
+
+    this.container.addEventListener("pointermove", (event) => {
+      if (!this.isPointerDown) {
+        return;
+      }
+
+      const deltaX = event.clientX - this.pointer.x;
+      const deltaY = event.clientY - this.pointer.y;
+      this.pointer.x = event.clientX;
+      this.pointer.y = event.clientY;
+      this.rotation.y += deltaX * 0.01;
+      this.rotation.x = Math.max(-0.9, Math.min(0.25, this.rotation.x + (deltaY * 0.008)));
+      this.updateViewTransform();
+    });
+
+    const stopPointer = () => {
+      this.isPointerDown = false;
+    };
+
+    this.container.addEventListener("pointerup", stopPointer);
+    this.container.addEventListener("pointercancel", stopPointer);
+    this.container.addEventListener("pointerleave", stopPointer);
+  };
+
+  GeradorModelo3D.prototype.updateViewTransform = function updateViewTransform() {
+    this.root.rotation.x = this.rotation.x;
+    this.root.rotation.y = this.rotation.y;
+    this.dimensionGroup.rotation.y = this.rotation.y;
   };
 
   GeradorModelo3D.prototype.handleResize = function handleResize() {
@@ -203,7 +259,10 @@
 
   GeradorModelo3D.prototype.animate = function animate() {
     this.animationFrame = requestAnimationFrame(this.animate.bind(this));
-    this.controls.update();
+    if (!this.isPointerDown) {
+      this.rotation.y += 0.002;
+      this.updateViewTransform();
+    }
     this.renderer.render(this.scene, this.camera);
   };
 
@@ -274,9 +333,9 @@
       this.pieces[piece.key] = piece;
     });
 
-    this.root.position.y = 0;
-    this.controls.target.set(0, Math.max(calculo.external.altura / 3, 30), 0);
-    this.controls.update();
+    this.root.position.y = Math.max(-calculo.external.altura * 0.16, -28);
+    this.camera.lookAt(0, Math.max(calculo.external.altura / 3, 30), 0);
+    this.updateViewTransform();
     this.applyViewMode(mode || this.viewMode);
   };
 
