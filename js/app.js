@@ -2,7 +2,7 @@ import { DEFAULT_STATE, getDefaultState } from "./state.js";
 import { mm, downloadTextFile } from "./utils.js";
 import { calcularCupula } from "./calcularCupula.js";
 import { bindInputs, applyStateToForm, readFormState } from "./input.js";
-import { renderizarTabela, gerarCSV } from "./gerarTabela.js";
+import { renderizarTabela } from "./gerarTabela.js";
 import { renderizarPreview2D } from "./gerarPreview2D.js";
 import { GeradorModelo3D } from "./gerarModelo3D.js";
 import { gerarDXF, getDXFFileName } from "./gerarDXF.js";
@@ -22,7 +22,6 @@ const elements = {
   preview2D: document.getElementById("preview-2d"),
   threeContainer: document.getElementById("three-container"),
   downloadDXF: document.getElementById("download-dxf"),
-  downloadCSV: document.getElementById("download-csv"),
   resetButton: document.getElementById("reset-form"),
   modeButtons: document.querySelectorAll("[data-view-mode]"),
 };
@@ -38,7 +37,6 @@ function setBanner(element, message) {
 
 function setDownloadState(enabled) {
   elements.downloadDXF.disabled = !enabled;
-  elements.downloadCSV.disabled = !enabled;
 }
 
 function updateViewButtons() {
@@ -117,19 +115,6 @@ function bindDownloads() {
       gerarDXF(calculoAtual.pecas),
       getDXFFileName(calculoAtual),
       "application/dxf;charset=utf-8"
-    );
-  });
-
-  elements.downloadCSV.addEventListener("click", () => {
-    if (!calculoAtual || !calculoAtual.isValido) {
-      return;
-    }
-
-    const fileName = `tabela_cupula_${Math.round(calculoAtual.medidasExternas.largura)}x${Math.round(calculoAtual.medidasExternas.profundidade)}x${Math.round(calculoAtual.medidasExternas.altura)}.csv`;
-    downloadTextFile(
-      gerarCSV(calculoAtual.pecas),
-      fileName,
-      "text/csv;charset=utf-8"
     );
   });
 }
