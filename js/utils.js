@@ -1,44 +1,35 @@
-(function () {
-  function mm(value) {
-    return `${Number(value).toFixed(Number.isInteger(value) ? 0 : 1)} mm`;
-  }
+export function mm(value) {
+  const numericValue = Number(value);
+  const decimals = Number.isInteger(numericValue) ? 0 : 1;
+  return `${numericValue.toFixed(decimals)} mm`;
+}
 
-  function clampPositive(value) {
-    return Number.isFinite(value) ? Math.max(0, value) : 0;
-  }
+export function round(value, digits = 2) {
+  const factor = 10 ** digits;
+  return Math.round(Number(value) * factor) / factor;
+}
 
-  function round(value, digits = 2) {
-    const factor = 10 ** digits;
-    return Math.round(value * factor) / factor;
-  }
+export function sanitizeNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
 
-  function downloadTextFile(content, fileName, type) {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = fileName;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
+export function downloadTextFile(content, fileName, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+}
 
-  function createSvgNode(tag, attrs) {
-    const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
-    Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
-    return node;
-  }
-
-  function sanitizeNumber(value, fallback) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
-  }
-
-  window.CupulaUtils = {
-    mm,
-    round,
-    clampPositive,
-    downloadTextFile,
-    createSvgNode,
-    sanitizeNumber,
-  };
-})();
+export function createSvgNode(tag, attributes = {}) {
+  const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  Object.entries(attributes).forEach(([key, value]) => {
+    node.setAttribute(key, String(value));
+  });
+  return node;
+}
