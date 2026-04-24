@@ -4,10 +4,9 @@ Aplicação web estática para gerar cúpulas e caixas de acrílico a partir de 
 
 ## Como abrir
 
-1. Entre na pasta `Proj_Cupula`.
-2. Abra o arquivo `index.html` em um navegador moderno.
-3. Ajuste os campos no painel esquerdo.
-4. Use os botões para baixar o DXF ou a tabela CSV.
+1. Abra o arquivo `index.html` em um navegador moderno.
+2. Ajuste os campos no painel esquerdo.
+3. Use os botões para baixar o DXF ou a tabela CSV.
 
 O projeto não depende de backend. Toda a lógica roda no navegador.
 
