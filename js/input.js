@@ -1,57 +1,53 @@
-(function () {
-  const { defaults } = window.CupulaState;
-  const { sanitizeNumber } = window.CupulaUtils;
+import { DEFAULT_STATE } from "./state.js";
+import { sanitizeNumber } from "./utils.js";
 
-  function setSegment(container, value) {
-    container.querySelectorAll(".segment").forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.value === value);
-    });
-  }
+export function setSegmentedValue(container, value) {
+  container.querySelectorAll(".segment").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.value === value);
+  });
+}
 
-  function bindInputs(elements, onChange) {
-    ["largura", "profundidade", "altura", "espessura", "tipoMontagem"].forEach((key) => {
-      elements[key].addEventListener("input", onChange);
-      elements[key].addEventListener("change", onChange);
-    });
-
-    elements.segmented.forEach((container) => {
-      container.addEventListener("click", (event) => {
-        const button = event.target.closest(".segment");
-        if (!button) {
-          return;
-        }
-
-        setSegment(container, button.dataset.value);
-        onChange();
-      });
-    });
-
-    elements.resetButton.addEventListener("click", () => {
-      elements.largura.value = defaults.largura;
-      elements.profundidade.value = defaults.profundidade;
-      elements.altura.value = defaults.altura;
-      elements.espessura.value = defaults.espessura;
-      elements.tipoMontagem.value = defaults.tipoMontagem;
-      elements.segmented.forEach((container) => setSegment(container, container.dataset.segmented === "tipoMedida" ? defaults.tipoMedida : defaults.tipoCupula));
-      onChange({ resetViewMode: true });
-    });
-  }
-
-  function readFormState(elements) {
-    return {
-      largura: sanitizeNumber(elements.largura.value, defaults.largura),
-      profundidade: sanitizeNumber(elements.profundidade.value, defaults.profundidade),
-      altura: sanitizeNumber(elements.altura.value, defaults.altura),
-      espessura: sanitizeNumber(elements.espessura.value, defaults.espessura),
-      tipoMontagem: elements.tipoMontagem.value,
-      tipoMedida: elements.tipoMedida.querySelector(".segment.is-active").dataset.value,
-      tipoCupula: elements.tipoCupula.querySelector(".segment.is-active").dataset.value,
-    };
-  }
-
-  window.CupulaInput = {
-    bindInputs,
-    readFormState,
-    setSegment,
+export function readFormState(elements) {
+  return {
+    largura: sanitizeNumber(elements.largura.value, DEFAULT_STATE.largura),
+    profundidade: sanitizeNumber(elements.profundidade.value, DEFAULT_STATE.profundidade),
+    altura: sanitizeNumber(elements.altura.value, DEFAULT_STATE.altura),
+    espessura: sanitizeNumber(elements.espessura.value, DEFAULT_STATE.espessura),
+    tipoMontagem: elements.tipoMontagem.value,
+    tipoMedida: elements.tipoMedida.querySelector(".segment.is-active")?.dataset.value || DEFAULT_STATE.tipoMedida,
+    tipoCupula: elements.tipoCupula.querySelector(".segment.is-active")?.dataset.value || DEFAULT_STATE.tipoCupula,
   };
-})();
+}
+
+export function applyStateToForm(elements, state) {
+  elements.largura.value = state.largura;
+  elements.profundidade.value = state.profundidade;
+  elements.altura.value = state.altura;
+  elements.espessura.value = state.espessura;
+  elements.tipoMontagem.value = state.tipoMontagem;
+  setSegmentedValue(elements.tipoMedida, state.tipoMedida);
+  setSegmentedValue(elements.tipoCupula, state.tipoCupula);
+}
+
+export function bindInputs(elements, onChange, onReset) {
+  ["largura", "profundidade", "altura", "espessura", "tipoMontagem"].forEach((field) => {
+    elements[field].addEventListener("input", onChange);
+    elements[field].addEventListener("change", onChange);
+  });
+
+  [elements.tipoMedida, elements.tipoCupula].forEach((container) => {
+    container.addEventListener("click", (event) => {
+      const button = event.target.closest(".segment");
+      if (!button) {
+        return;
+      }
+
+      setSegmentedValue(container, button.dataset.value);
+      onChange();
+    });
+  });
+
+  elements.resetButton.addEventListener("click", () => {
+    onReset();
+  });
+}
