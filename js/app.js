@@ -31,7 +31,14 @@
 
   let currentViewMode = defaults.viewMode;
   let calculoAtual = null;
-  const preview3D = new GeradorModelo3D(elements.threeContainer);
+  let preview3D = null;
+
+  try {
+    preview3D = new GeradorModelo3D(elements.threeContainer);
+  } catch (error) {
+    console.error("Falha ao inicializar o preview 3D:", error);
+    elements.threeContainer.innerHTML = '<div class="preview-empty">Não foi possível carregar o preview 3D neste navegador.</div>';
+  }
 
   function updateMessage(element, text) {
     element.textContent = text || "";
@@ -90,19 +97,23 @@
 
     if (calculoAtual.isValid) {
       gerarPreview2D(calculoAtual.pieces, elements.preview2D);
-      preview3D.update(calculoAtual, currentViewMode);
+      if (preview3D) {
+        preview3D.update(calculoAtual, currentViewMode);
+      }
       return;
     }
 
     elements.preview2D.innerHTML = '<div class="preview-empty">Preview indisponível até que as dimensões fiquem válidas.</div>';
-    preview3D.clear();
+    if (preview3D) {
+      preview3D.clear();
+    }
   }
 
   elements.modeButtons.forEach((button) => {
     button.addEventListener("click", () => {
       currentViewMode = button.dataset.viewMode;
       updateModeButtons(currentViewMode);
-      if (calculoAtual) {
+      if (calculoAtual && preview3D) {
         preview3D.applyViewMode(currentViewMode);
       }
     });
