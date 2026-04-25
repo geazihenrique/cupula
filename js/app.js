@@ -1,11 +1,19 @@
-import { DEFAULT_STATE, getDefaultState } from "./state.js";
-import { mm, downloadTextFile } from "./utils.js";
 import { calcularCupula } from "./calcularCupula.js";
-import { bindInputs, applyStateToForm, readFormState } from "./input.js";
 import { renderizarTabela } from "./gerarTabela.js";
 import { renderizarPreview2D } from "./gerarPreview2D.js";
 import { GeradorModelo3D } from "./gerarModelo3D.js";
 import { gerarDXF, getDXFFileName } from "./gerarDXF.js";
+
+const DEFAULT_STATE = {
+  largura: 300,
+  profundidade: 200,
+  altura: 150,
+  espessura: 3,
+  tipoMedida: "externa",
+  tipoCupula: "aberta",
+  tipoMontagem: "dentro",
+  viewMode: "montada",
+};
 
 const elements = {
   largura: document.getElementById("largura"),
@@ -26,17 +34,39 @@ const elements = {
   modeButtons: document.querySelectorAll("[data-view-mode]"),
 };
 
+const currentState = { ...DEFAULT_STATE };
 let viewMode = DEFAULT_STATE.viewMode;
 let calculoAtual = null;
 let preview3D = null;
 
+function mm(valor) {
+  return `${Number(valor).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} mm`;
+}
+
+function downloadTextFile(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function setBanner(element, message) {
+  if (!element) {
+    return;
+  }
   element.textContent = message || "";
   element.classList.toggle("hidden", !message);
 }
 
 function setDownloadState(enabled) {
-  elements.downloadDXF.disabled = !enabled;
+  if (elements.downloadDXF) {
+    elements.downloadDXF.disabled = !enabled;
+  }
 }
 
 function updateViewButtons() {
@@ -45,7 +75,53 @@ function updateViewButtons() {
   });
 }
 
+function syncFormFromState() {
+  if (elements.largura) {
+    elements.largura.value = String(currentState.largura);
+  }
+  if (elements.profundidade) {
+    elements.profundidade.value = String(currentState.profundidade);
+  }
+  if (elements.altura) {
+    elements.altura.value = String(currentState.altura);
+  }
+  if (elements.espessura) {
+    elements.espessura.value = String(currentState.espessura);
+  }
+  if (elements.tipoMontagem) {
+    elements.tipoMontagem.value = currentState.tipoMontagem;
+  }
+
+  [elements.tipoMedida, elements.tipoCupula].forEach((group) => {
+    if (!group) {
+      return;
+    }
+    const key = group.dataset.segmented;
+    const activeValue = currentState[key];
+    group.querySelectorAll(".segment").forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.value === activeValue);
+    });
+  });
+}
+
+function readNumberInput(element, fallback) {
+  const value = Number(element?.value);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function syncStateFromForm() {
+  currentState.largura = readNumberInput(elements.largura, DEFAULT_STATE.largura);
+  currentState.profundidade = readNumberInput(elements.profundidade, DEFAULT_STATE.profundidade);
+  currentState.altura = readNumberInput(elements.altura, DEFAULT_STATE.altura);
+  currentState.espessura = readNumberInput(elements.espessura, DEFAULT_STATE.espessura);
+  currentState.tipoMontagem = elements.tipoMontagem?.value === "fora" ? "fora" : "dentro";
+}
+
 function renderSummary(calculo) {
+  if (!elements.summaryGrid) {
+    return;
+  }
+
   const items = [
     ["Medidas informadas", `${mm(calculo.configuracao.largura)} × ${mm(calculo.configuracao.profundidade)} × ${mm(calculo.configuracao.altura)}`],
     ["Medidas externas finais", `${mm(calculo.medidasExternas.largura)} × ${mm(calculo.medidasExternas.profundidade)} × ${mm(calculo.medidasExternas.altura)}`],
@@ -66,31 +142,45 @@ function renderSummary(calculo) {
 }
 
 function renderApp() {
-  calculoAtual = calcularCupula(readFormState(elements));
-  renderSummary(calculoAtual);
-  renderizarTabela(calculoAtual.pecas, elements.tableBody);
-  setBanner(elements.validationMessage, calculoAtual.isValido ? "" : calculoAtual.erros[0]);
-  setBanner(elements.recommendationMessage, calculoAtual.recomendacao ? calculoAtual.recomendacao.mensagem : "");
-  setDownloadState(calculoAtual.isValido);
+  try {
+    calculoAtual = calcularCupula(currentState);
+    renderSummary(calculoAtual);
+    renderizarTabela(calculoAtual.pecas, elements.tableBody);
+    setBanner(elements.validationMessage, calculoAtual.isValido ? "" : calculoAtual.erros[0]);
+    setBanner(elements.recommendationMessage, calculoAtual.recomendacao ? calculoAtual.recomendacao.mensagem : "");
+    setDownloadState(calculoAtual.isValido);
 
-  if (calculoAtual.isValido) {
-    renderizarPreview2D(calculoAtual.pecas, elements.preview2D);
-    preview3D.update(calculoAtual, viewMode);
-  } else {
-    elements.preview2D.innerHTML = '<div class="preview-empty">Preview indisponível até que as dimensões fiquem válidas.</div>';
-    preview3D.clear();
+    if (calculoAtual.isValido) {
+      renderizarPreview2D(calculoAtual.pecas, elements.preview2D);
+      if (preview3D) {
+        preview3D.update(calculoAtual, viewMode);
+      }
+    } else {
+      if (elements.preview2D) {
+        elements.preview2D.innerHTML = '<div class="preview-empty">Preview indisponível até que as dimensões fiquem válidas.</div>';
+      }
+      if (preview3D) {
+        preview3D.clear();
+      }
+    }
+  } catch {
+    setBanner(elements.validationMessage, "Ocorreu um erro ao atualizar a cúpula. Revise os dados informados.");
+    setDownloadState(false);
   }
 }
 
 function resetForm() {
-  applyStateToForm(elements, getDefaultState());
+  Object.assign(currentState, DEFAULT_STATE);
   viewMode = DEFAULT_STATE.viewMode;
+  syncFormFromState();
   updateViewButtons();
   renderApp();
 }
 
 function initialize3D() {
-  preview3D = new GeradorModelo3D(elements.threeContainer);
+  if (elements.threeContainer) {
+    preview3D = new GeradorModelo3D(elements.threeContainer);
+  }
 }
 
 function bindViewModeButtons() {
@@ -98,14 +188,55 @@ function bindViewModeButtons() {
     button.addEventListener("click", () => {
       viewMode = button.dataset.viewMode;
       updateViewButtons();
-      if (calculoAtual) {
+      if (calculoAtual && preview3D) {
         preview3D.applyViewMode(viewMode);
       }
     });
   });
 }
 
+function bindFormEvents() {
+  [elements.largura, elements.profundidade, elements.altura, elements.espessura, elements.tipoMontagem].forEach((field) => {
+    if (!field) {
+      return;
+    }
+
+    field.addEventListener("input", () => {
+      syncStateFromForm();
+      renderApp();
+    });
+
+    field.addEventListener("change", () => {
+      syncStateFromForm();
+      renderApp();
+    });
+  });
+
+  [elements.tipoMedida, elements.tipoCupula].forEach((group) => {
+    if (!group) {
+      return;
+    }
+
+    const key = group.dataset.segmented;
+    group.querySelectorAll(".segment").forEach((button) => {
+      button.addEventListener("click", () => {
+        currentState[key] = button.dataset.value;
+        syncFormFromState();
+        renderApp();
+      });
+    });
+  });
+
+  if (elements.resetButton) {
+    elements.resetButton.addEventListener("click", resetForm);
+  }
+}
+
 function bindDownloads() {
+  if (!elements.downloadDXF) {
+    return;
+  }
+
   elements.downloadDXF.addEventListener("click", () => {
     if (!calculoAtual || !calculoAtual.isValido) {
       return;
@@ -120,10 +251,10 @@ function bindDownloads() {
 }
 
 function bootstrap() {
+  syncFormFromState();
   initialize3D();
-  applyStateToForm(elements, getDefaultState());
   updateViewButtons();
-  bindInputs(elements, renderApp, resetForm);
+  bindFormEvents();
   bindViewModeButtons();
   bindDownloads();
   renderApp();
