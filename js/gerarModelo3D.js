@@ -51,6 +51,34 @@ function createLabelSprite(text) {
   return sprite;
 }
 
+function createFaceWordmark(text, width, height) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1024;
+  canvas.height = 512;
+  const context = canvas.getContext("2d");
+  const fontSize = Math.round(canvas.height * 0.42);
+
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "rgba(76,29,149,0.88)";
+  context.font = `700 ${fontSize}px Segoe UI`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const sprite = new THREE.Sprite(material);
+  const baseSize = Math.min(width, height) * 0.15;
+  sprite.scale.set(baseSize * 2.8, baseSize, 1);
+  return sprite;
+}
+
 function createDimensionLine(start, end, text) {
   const geometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(...start),
@@ -99,6 +127,12 @@ function createPanel(width, height, depth, label) {
   mesh.add(edges);
 
   return mesh;
+}
+
+function addWordmarkToFront(mesh, panelWidth, panelHeight, panelDepth) {
+  const wordmark = createFaceWordmark("Arcode", panelWidth, panelHeight);
+  wordmark.position.set(0, 0, (panelDepth / 2) + 0.6);
+  mesh.add(wordmark);
 }
 
 function buildPieceMap(calculo) {
@@ -178,7 +212,7 @@ export class GeradorModelo3D {
     this.scene.add(this.root);
     this.scene.add(this.dimensions);
 
-    this.camera.position.set(0, 190, 470);
+    this.camera.position.set(420, 300, 420);
 
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.container.clientWidth || 800, this.container.clientHeight || 480);
@@ -245,8 +279,8 @@ export class GeradorModelo3D {
         "Largura"
       ),
       createDimensionLine(
-        [largura / 2 + 18, -8, -profundidade / 2],
-        [largura / 2 + 18, -8, profundidade / 2],
+        [-largura / 2 - 18, -8, -profundidade / 2],
+        [-largura / 2 - 18, -8, profundidade / 2],
         "Profundidade"
       ),
       createDimensionLine(
@@ -287,6 +321,14 @@ export class GeradorModelo3D {
     this.buildDimensions(calculo);
 
     const pieceMap = buildPieceMap(calculo);
+    if (pieceMap.frente) {
+      addWordmarkToFront(
+        pieceMap.frente.mesh,
+        pieceMap.frente.mesh.geometry.parameters.width,
+        pieceMap.frente.mesh.geometry.parameters.height,
+        pieceMap.frente.mesh.geometry.parameters.depth
+      );
+    }
     Object.entries(pieceMap).forEach(([key, piece]) => {
       this.root.add(piece.mesh);
       this.pieces[key] = piece;
@@ -296,6 +338,11 @@ export class GeradorModelo3D {
     this.root.rotation.set(0, 0, 0);
     this.dimensions.rotation.set(0, 0, 0);
     this.controls.target.set(0, Math.max(calculo.medidasExternas.altura / 3, 34), 0);
+    this.camera.position.set(
+      calculo.medidasExternas.largura * 1.35,
+      calculo.medidasExternas.altura * 1.7,
+      calculo.medidasExternas.profundidade * 2.1
+    );
     this.controls.update();
     this.applyViewMode(mode);
   }
