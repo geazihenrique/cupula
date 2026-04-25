@@ -1,9 +1,29 @@
-import { createSvgNode, mm } from "./utils.js";
+function mm(valor) {
+  return `${Number(valor).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} mm`;
+}
+
+function createSvgNode(tag, attributes = {}) {
+  const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, String(value)));
+  return node;
+}
+
+function expandirPecas(pecas) {
+  return pecas.flatMap((peca) => Array.from({ length: peca.quantidade }, (_, index) => ({
+    ...peca,
+    titulo: peca.quantidade > 1 ? `${peca.nome} ${index + 1}` : peca.nome,
+  })));
+}
 
 export function renderizarPreview2D(pecas, container) {
+  if (!container) {
+    return;
+  }
+
   container.innerHTML = "";
 
-  if (!pecas.length) {
+  const pecasExpandida = expandirPecas(pecas);
+  if (!pecasExpandida.length) {
     const emptyState = document.createElement("div");
     emptyState.className = "preview-empty";
     emptyState.textContent = "Nenhuma peça disponível para exibir.";
@@ -11,13 +31,13 @@ export function renderizarPreview2D(pecas, container) {
     return;
   }
 
-  const spacing = 28;
-  const padding = 24;
-  const maxWidth = Math.max(...pecas.map((peca) => peca.largura));
-  const maxHeight = Math.max(...pecas.map((peca) => peca.alturaProfundidade));
-  const scale = Math.min(1.15, 900 / Math.max(maxWidth * pecas.length, maxHeight));
-  const svgWidth = pecas.reduce((acc, peca) => acc + (peca.largura * scale) + spacing, (padding * 2) - spacing);
-  const svgHeight = (maxHeight * scale) + 110;
+  const padding = 28;
+  const spacing = 26;
+  const maxHeight = Math.max(...pecasExpandida.map((peca) => peca.alturaProfundidade));
+  const totalWidth = pecasExpandida.reduce((acc, peca) => acc + peca.largura, 0);
+  const scale = Math.max(0.28, Math.min(1, 1020 / (totalWidth + (spacing * pecasExpandida.length))));
+  const svgWidth = (padding * 2) + (totalWidth * scale) + (spacing * (pecasExpandida.length - 1));
+  const svgHeight = (padding * 2) + (maxHeight * scale) + 100;
 
   const svg = createSvgNode("svg", {
     viewBox: `0 0 ${svgWidth} ${svgHeight}`,
@@ -30,16 +50,15 @@ export function renderizarPreview2D(pecas, container) {
     y: 0,
     width: svgWidth,
     height: svgHeight,
-    rx: 24,
+    rx: 28,
     fill: "#fbfbfe",
   }));
 
   let currentX = padding;
-
-  pecas.forEach((peca, index) => {
+  pecasExpandida.forEach((peca, index) => {
     const width = peca.largura * scale;
     const height = peca.alturaProfundidade * scale;
-    const posY = 36 + ((maxHeight * scale) - height) / 2;
+    const posY = padding + ((maxHeight * scale) - height) / 2 + 24;
 
     svg.appendChild(createSvgNode("rect", {
       x: currentX,
@@ -47,8 +66,8 @@ export function renderizarPreview2D(pecas, container) {
       width,
       height,
       rx: 12,
-      fill: index % 2 === 0 ? "rgba(111, 87, 217, 0.10)" : "rgba(111, 87, 217, 0.06)",
-      stroke: "#6f57d9",
+      fill: index % 2 === 0 ? "rgba(111, 87, 217, 0.12)" : "rgba(111, 87, 217, 0.07)",
+      stroke: "#4c1d95",
       "stroke-width": 2,
     }));
 
@@ -58,14 +77,15 @@ export function renderizarPreview2D(pecas, container) {
       "text-anchor": "middle",
       "font-size": 13,
       "font-family": "Segoe UI, sans-serif",
+      "font-weight": 600,
       fill: "#17171b",
     });
-    title.textContent = peca.quantidade > 1 ? `${peca.nome} (${peca.quantidade}x)` : peca.nome;
+    title.textContent = peca.titulo;
     svg.appendChild(title);
 
     const subtitle = createSvgNode("text", {
       x: currentX + (width / 2),
-      y: posY + height + 18,
+      y: posY + height + 20,
       "text-anchor": "middle",
       "font-size": 12,
       "font-family": "Segoe UI, sans-serif",
