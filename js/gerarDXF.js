@@ -11,38 +11,43 @@ function createRectangleEntities(x, y, width, height) {
   ];
 }
 
+function expandirPecas(pecas) {
+  return pecas.flatMap((peca) => Array.from({ length: peca.quantidade }, () => ({
+    largura: peca.largura,
+    alturaProfundidade: peca.alturaProfundidade,
+  })));
+}
+
 export function gerarDXF(pecas) {
   const spacing = 20;
   let offsetX = 0;
   const entities = [];
 
-  pecas.forEach((peca) => {
-    for (let index = 0; index < peca.quantidade; index += 1) {
-      const linhas = createRectangleEntities(offsetX, 0, peca.largura, peca.alturaProfundidade);
+  expandirPecas(pecas).forEach((peca) => {
+    const linhas = createRectangleEntities(offsetX, 0, peca.largura, peca.alturaProfundidade);
 
-      linhas.forEach((linha) => {
-        entities.push(
-          "0",
-          "LINE",
-          "8",
-          "CORTE",
-          "10",
-          formatNumber(linha[0]),
-          "20",
-          formatNumber(linha[1]),
-          "30",
-          "0",
-          "11",
-          formatNumber(linha[2]),
-          "21",
-          formatNumber(linha[3]),
-          "31",
-          "0"
-        );
-      });
+    linhas.forEach((linha) => {
+      entities.push(
+        "0",
+        "LINE",
+        "8",
+        "CORTE",
+        "10",
+        formatNumber(linha[0]),
+        "20",
+        formatNumber(linha[1]),
+        "30",
+        "0",
+        "11",
+        formatNumber(linha[2]),
+        "21",
+        formatNumber(linha[3]),
+        "31",
+        "0"
+      );
+    });
 
-      offsetX += peca.largura + spacing;
-    }
+    offsetX += peca.largura + spacing;
   });
 
   return [
