@@ -1,7 +1,6 @@
 import { calcularCupula } from "./calcularCupula.js";
 import { renderizarTabela } from "./gerarTabela.js";
 import { renderizarPreview2D } from "./gerarPreview2D.js";
-import { GeradorModelo3D } from "./gerarModelo3D.js";
 import { gerarDXF, getDXFFileName } from "./gerarDXF.js";
 
 const DEFAULT_STATE = {
@@ -38,6 +37,8 @@ const currentState = { ...DEFAULT_STATE };
 let viewMode = DEFAULT_STATE.viewMode;
 let calculoAtual = null;
 let preview3D = null;
+let preview3DLoading = false;
+let preview3DUnavailable = false;
 
 function mm(valor) {
   return `${Number(valor).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} mm`;
@@ -61,6 +62,14 @@ function setBanner(element, message) {
   }
   element.textContent = message || "";
   element.classList.toggle("hidden", !message);
+}
+
+function setThreeFallback(message) {
+  if (!elements.threeContainer) {
+    return;
+  }
+
+  elements.threeContainer.innerHTML = `<div class="preview-empty">${message}</div>`;
 }
 
 function setDownloadState(enabled) {
@@ -154,6 +163,10 @@ function renderApp() {
       renderizarPreview2D(calculoAtual.pecas, elements.preview2D);
       if (preview3D) {
         preview3D.update(calculoAtual, viewMode);
+      } else if (preview3DUnavailable) {
+        setThreeFallback("Visualização 3D indisponível neste navegador. Os demais recursos continuam funcionando.");
+      } else if (preview3DLoading) {
+        setThreeFallback("Carregando visualização 3D...");
       }
     } else {
       if (elements.preview2D) {
@@ -161,9 +174,14 @@ function renderApp() {
       }
       if (preview3D) {
         preview3D.clear();
+      } else if (preview3DUnavailable) {
+        setThreeFallback("Visualização 3D indisponível neste navegador.");
+      } else if (preview3DLoading) {
+        setThreeFallback("Carregando visualização 3D...");
       }
     }
-  } catch {
+  } catch (error) {
+    console.error("Falha ao atualizar a aplicação:", error);
     setBanner(elements.validationMessage, "Ocorreu um erro ao atualizar a cúpula. Revise os dados informados.");
     setDownloadState(false);
   }
@@ -177,9 +195,27 @@ function resetForm() {
   renderApp();
 }
 
-function initialize3D() {
-  if (elements.threeContainer) {
-    preview3D = new GeradorModelo3D(elements.threeContainer);
+async function initialize3D() {
+  if (!elements.threeContainer || preview3D || preview3DLoading) {
+    return;
+  }
+
+  preview3DLoading = true;
+  setThreeFallback("Carregando visualização 3D...");
+
+  try {
+    const module = await import("./gerarModelo3D.js");
+    preview3D = new module.GeradorModelo3D(elements.threeContainer);
+    preview3DUnavailable = false;
+    if (calculoAtual && calculoAtual.isValido) {
+      preview3D.update(calculoAtual, viewMode);
+    }
+  } catch (error) {
+    preview3DUnavailable = true;
+    console.error("Falha ao inicializar a visualização 3D:", error);
+    setThreeFallback("Visualização 3D indisponível neste navegador. Os demais recursos continuam funcionando.");
+  } finally {
+    preview3DLoading = false;
   }
 }
 
@@ -252,12 +288,12 @@ function bindDownloads() {
 
 function bootstrap() {
   syncFormFromState();
-  initialize3D();
   updateViewButtons();
   bindFormEvents();
   bindViewModeButtons();
   bindDownloads();
   renderApp();
+  initialize3D();
 }
 
 bootstrap();
