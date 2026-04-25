@@ -1,12 +1,13 @@
 # Gerador de Cúpulas
 
-Aplicação web estática para gerar cúpulas e caixas de acrílico a partir de largura, profundidade, altura, espessura, tipo de medida, tipo da cúpula e tipo de montagem. O sistema calcula as peças, mostra um resumo técnico, exibe preview 3D, gera preview 2D de corte e permite baixar tabela CSV e arquivo DXF para corte a laser.
+Aplicação web estática para gerar cúpulas e caixas de acrílico a partir de largura, profundidade, altura, espessura, tipo de medida, tipo da cúpula e tipo de montagem. O sistema calcula as peças, mostra um resumo técnico, exibe preview 3D, gera preview 2D de corte e permite baixar arquivo DXF para corte a laser.
 
 ## Como abrir
 
-1. Abra o arquivo `index.html` em um navegador moderno.
-2. Ajuste os campos no painel esquerdo.
-3. Use os botões para baixar o DXF ou a tabela CSV.
+1. Entre na pasta `Proj_Cupula`.
+2. Abra o arquivo `index.html` em um navegador moderno.
+3. Ajuste os campos no painel esquerdo.
+4. Use os botões para baixar o DXF ou limpar o formulário.
 
 O projeto não depende de backend. Toda a lógica roda no navegador.
 
@@ -14,14 +15,11 @@ O projeto não depende de backend. Toda a lógica roda no navegador.
 
 - `index.html`: estrutura da interface.
 - `css/style.css`: layout, responsividade e identidade visual.
-- `js/state.js`: estado inicial da aplicação.
-- `js/input.js`: leitura dos campos e eventos da interface.
 - `js/calcularCupula.js`: regras de cálculo, validações e recomendação de espessura.
-- `js/gerarTabela.js`: renderização da tabela e exportação CSV.
+- `js/gerarTabela.js`: renderização da tabela de peças.
 - `js/gerarPreview2D.js`: preview SVG das peças.
 - `js/gerarModelo3D.js`: montagem do modelo 3D com Three.js.
 - `js/gerarDXF.js`: geração do arquivo DXF ASCII.
-- `js/utils.js`: helpers de formatação e download.
 - `js/app.js`: orquestração geral da interface.
 
 ## Como os cálculos funcionam
@@ -58,7 +56,7 @@ O projeto não depende de backend. Toda a lógica roda no navegador.
 ### Validação
 
 - O sistema impede peças com largura, profundidade ou altura menor ou igual a zero.
-- Quando isso acontece, mostra erro em português e bloqueia o download do DXF e do CSV.
+- Quando isso acontece, mostra erro em português e bloqueia o download do DXF.
 
 ### Recomendação de espessura
 
