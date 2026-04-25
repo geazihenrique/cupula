@@ -1,21 +1,17 @@
 :root {
-  --bg: #f3f4f8;
-  --bg-strong: #e9ebf2;
-  --card: rgba(255, 255, 255, 0.72);
-  --card-border: rgba(255, 255, 255, 0.82);
+  --bg: #f4f5f9;
+  --card: rgba(255, 255, 255, 0.78);
+  --card-border: rgba(255, 255, 255, 0.9);
   --text: #17171b;
   --muted: #66697a;
-  --line: rgba(111, 87, 217, 0.12);
   --brand: #6f57d9;
   --brand-strong: #5a41cb;
-  --brand-soft: rgba(111, 87, 217, 0.14);
   --danger: #c85b5b;
   --warning: #8e5b17;
-  --shadow: 0 24px 64px rgba(23, 23, 27, 0.08);
+  --shadow: 0 24px 60px rgba(23, 23, 27, 0.08);
   --radius-xl: 28px;
   --radius-lg: 22px;
   --radius-md: 16px;
-  --radius-sm: 12px;
   --sidebar-width: 370px;
 }
 
@@ -30,8 +26,8 @@ body {
   font-family: "SF Pro Display", "Segoe UI", sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(111, 87, 217, 0.14), transparent 28%),
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.7), transparent 22%),
+    radial-gradient(circle at top left, rgba(111, 87, 217, 0.14), transparent 30%),
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.74), transparent 24%),
     linear-gradient(180deg, #f9fafc 0%, var(--bg) 100%);
 }
 
@@ -75,14 +71,11 @@ select {
   letter-spacing: -0.03em;
 }
 
-.brand-block p,
-.card-header p,
 .summary-item span,
 .field span,
 .group-label,
 .message-banner,
-table,
-.preview-caption {
+table {
   color: var(--muted);
 }
 
@@ -100,7 +93,6 @@ table,
 }
 
 .config-form,
-.field-grid,
 .field-group {
   display: flex;
   flex-direction: column;
@@ -166,7 +158,6 @@ input[type="number"]::-webkit-inner-spin-button {
 .segment,
 .mode-button,
 .primary-button,
-.secondary-button,
 .ghost-button {
   border: 0;
   border-radius: 16px;
@@ -218,7 +209,7 @@ input[type="number"]::-webkit-inner-spin-button {
 
 .actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -226,12 +217,6 @@ input[type="number"]::-webkit-inner-spin-button {
   background: linear-gradient(135deg, var(--brand), #856af2);
   color: white;
   box-shadow: 0 16px 32px rgba(111, 87, 217, 0.26);
-}
-
-.secondary-button {
-  background: rgba(255, 255, 255, 0.85);
-  color: var(--text);
-  border: 1px solid rgba(111, 87, 217, 0.12);
 }
 
 .ghost-button {
