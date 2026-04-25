@@ -1,9 +1,16 @@
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 
-const BRAND = 0x6f57d9;
 const EDGE = 0x4c1d95;
-const HIGHLIGHT = 0xb38bff;
+const HIGHLIGHT = 0xc4b5fd;
+const TONES = {
+  Base: 0x7c3aed,
+  Frente: 0x8b5cf6,
+  Fundo: 0xa78bfa,
+  "Lateral esquerda": 0x6d28d9,
+  "Lateral direita": 0x7e22ce,
+  Tampa: 0xc4b5fd,
+};
 
 function drawRoundedRect(context, x, y, width, height, radius) {
   const safeRadius = Math.min(radius, width / 2, height / 2);
@@ -70,27 +77,20 @@ function createDimensionLine(start, end, text) {
 
 function createPanel(width, height, depth, label) {
   const geometry = new THREE.BoxGeometry(width, height, depth);
-  const toneByLabel = {
-    Base: 0x6f57d9,
-    Frente: 0x7c3aed,
-    Fundo: 0x8b5cf6,
-    Lateral: 0x6d28d9,
-    Tampa: 0xa78bfa,
-  };
   const material = new THREE.MeshPhysicalMaterial({
-    color: toneByLabel[label] || BRAND,
+    color: TONES[label] || 0x7c3aed,
     transparent: true,
-    opacity: 0.44,
-    transmission: 0.78,
-    roughness: 0.08,
-    thickness: 1.6,
-    clearcoat: 1,
-    clearcoatRoughness: 0.05,
+    opacity: 0.46,
+    transmission: 0.74,
+    roughness: 0.1,
+    thickness: 1.4,
+    clearcoat: 0.95,
+    clearcoatRoughness: 0.04,
   });
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.userData.label = label;
-  mesh.userData.baseColor = toneByLabel[label] || BRAND;
+  mesh.userData.baseColor = TONES[label] || 0x7c3aed;
 
   const edges = new THREE.LineSegments(
     new THREE.EdgesGeometry(geometry),
@@ -131,12 +131,12 @@ function buildPieceMap(calculo) {
       exploded: new THREE.Vector3(0, centerY, medidasExternas.profundidade / 2 + 28),
     },
     lateralEsquerda: {
-      mesh: createPanel(espessura, alturaParede, profundidadeLaterais, "Lateral"),
+      mesh: createPanel(espessura, alturaParede, profundidadeLaterais, "Lateral esquerda"),
       assembled: new THREE.Vector3(-medidasExternas.largura / 2 + espessura / 2, centerY, 0),
       exploded: new THREE.Vector3(-medidasExternas.largura / 2 - 28, centerY, 0),
     },
     lateralDireita: {
-      mesh: createPanel(espessura, alturaParede, profundidadeLaterais, "Lateral"),
+      mesh: createPanel(espessura, alturaParede, profundidadeLaterais, "Lateral direita"),
       assembled: new THREE.Vector3(medidasExternas.largura / 2 - espessura / 2, centerY, 0),
       exploded: new THREE.Vector3(medidasExternas.largura / 2 + 28, centerY, 0),
     },
@@ -221,8 +221,12 @@ export class GeradorModelo3D {
   }
 
   clearScene() {
-    this.root.clear();
-    this.dimensions.clear();
+    while (this.root.children.length) {
+      this.root.remove(this.root.children[0]);
+    }
+    while (this.dimensions.children.length) {
+      this.dimensions.remove(this.dimensions.children[0]);
+    }
     this.pieces = {};
     window.clearInterval(this.sequenceTimer);
     this.sequenceTimer = null;
@@ -288,7 +292,7 @@ export class GeradorModelo3D {
       this.pieces[key] = piece;
     });
 
-    this.root.position.y = Math.max(-calculo.medidasExternas.altura * 0.14, -24);
+    this.root.position.y = Math.max(-calculo.medidasExternas.altura * 0.1, -18);
     this.root.rotation.set(0, 0, 0);
     this.dimensions.rotation.set(0, 0, 0);
     this.controls.target.set(0, Math.max(calculo.medidasExternas.altura / 3, 34), 0);
