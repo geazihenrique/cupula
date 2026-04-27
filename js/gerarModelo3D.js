@@ -72,7 +72,13 @@ function createEngravedPlane(text, width, height, variant = "dimension") {
   return plane;
 }
 
-function createDimensionLine(start, end) {
+function createGuideLabel(text) {
+  const plane = createEngravedPlane(text, 58, 18, "brand");
+  plane.material.opacity = 0.92;
+  return plane;
+}
+
+function createDimensionLine(start, end, text, labelPosition) {
   const geometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(...start),
     new THREE.Vector3(...end),
@@ -85,6 +91,9 @@ function createDimensionLine(start, end) {
 
   const group = new THREE.Group();
   group.add(line);
+  const label = createGuideLabel(text);
+  label.position.set(...labelPosition);
+  group.add(label);
   return group;
 }
 
@@ -334,15 +343,21 @@ export class GeradorModelo3D {
     this.dimensions.add(
       createDimensionLine(
         [-largura / 2, -14, profundidade / 2 + 22],
-        [largura / 2, -14, profundidade / 2 + 22]
+        [largura / 2, -14, profundidade / 2 + 22],
+        "Largura",
+        [0, -24, profundidade / 2 + 22]
       ),
       createDimensionLine(
         [-largura / 2 - 18, -8, -profundidade / 2],
-        [-largura / 2 - 18, -8, profundidade / 2]
+        [-largura / 2 - 18, -8, profundidade / 2],
+        "Profundidade",
+        [-largura / 2 - 44, -18, 0]
       ),
       createDimensionLine(
         [-largura / 2 - 20, 0, -profundidade / 2 - 18],
-        [-largura / 2 - 20, altura, -profundidade / 2 - 18]
+        [-largura / 2 - 20, altura, -profundidade / 2 - 18],
+        "Altura",
+        [-largura / 2 - 44, altura / 2, -profundidade / 2 - 18]
       )
     );
   }
