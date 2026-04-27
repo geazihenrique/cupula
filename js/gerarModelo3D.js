@@ -14,47 +14,49 @@ const TONES = {
 };
 const textureCache = new Map();
 
-function drawRoundedRect(context, x, y, width, height, radius) {
-  const safeRadius = Math.min(radius, width / 2, height / 2);
-  context.beginPath();
-  context.moveTo(x + safeRadius, y);
-  context.lineTo(x + width - safeRadius, y);
-  context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
-  context.lineTo(x + width, y + height - safeRadius);
-  context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
-  context.lineTo(x + safeRadius, y + height);
-  context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
-  context.lineTo(x, y + safeRadius);
-  context.quadraticCurveTo(x, y, x + safeRadius, y);
-}
-
-function getTextTexture(text, variant = "dimension") {
-  const key = `${variant}:${text}`;
+function getTextTexture(content, variant = "dimension") {
+  const key = `${variant}:${JSON.stringify(content)}`;
   if (textureCache.has(key)) {
     return textureCache.get(key);
   }
 
   const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 512;
+  const isGuide = variant === "guide";
+  const isBrand = variant === "brand";
+  const isPiece = variant === "piece";
+  canvas.width = isGuide ? 1024 : 2048;
+  canvas.height = isGuide ? 256 : 1024;
   const context = canvas.getContext("2d");
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.textAlign = "center";
   context.textBaseline = "middle";
+  context.fillStyle = "#4c1d95";
+  context.font = "600 24px Arial, sans-serif";
+  context.imageSmoothingEnabled = true;
 
-  if (variant === "brand") {
-    context.fillStyle = "rgba(76,29,149,0.68)";
-    context.font = "700 196px Segoe UI";
-    context.fillText(text, canvas.width / 2, canvas.height / 2);
+  const drawText = (text, size, weight, alpha, y) => {
+    context.font = `${weight} ${size}px Arial, sans-serif`;
+    context.fillStyle = `rgba(59, 7, 100, ${alpha})`;
+    context.fillText(text, canvas.width / 2, y);
+  };
+
+  if (isBrand) {
+    drawText(Array.isArray(content) ? content[0] : content, 240, 800, 0.92, canvas.height / 2);
+  } else if (isPiece) {
+    const [title, dimensions] = Array.isArray(content) ? content : [content, ""];
+    drawText(title, 168, 800, 0.96, canvas.height * 0.39);
+    drawText(dimensions, 100, 700, 0.84, canvas.height * 0.66);
   } else {
-    context.fillStyle = "rgba(76,29,149,0.42)";
-    context.font = "600 120px Segoe UI";
-    context.fillText(text, canvas.width / 2, canvas.height / 2);
+    drawText(Array.isArray(content) ? content[0] : content, 88, 650, 0.8, canvas.height / 2);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
   texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.anisotropy = 4;
   textureCache.set(key, texture);
   return texture;
 }
@@ -65,17 +67,30 @@ function createEngravedPlane(text, width, height, variant = "dimension") {
     transparent: true,
     depthTest: false,
     depthWrite: false,
-    opacity: variant === "brand" ? 0.7 : 0.78,
-    color: ENGRAVE,
+    opacity: variant === "brand" ? 0.9 : variant === "piece" ? 0.88 : 0.82,
+    color: 0xffffff,
+    toneMapped: false,
   });
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
+  plane.renderOrder = variant === "guide" ? 10 : variant === "brand" ? 8 : 6;
   return plane;
 }
 
 function createGuideLabel(text) {
-  const plane = createEngravedPlane(text, 58, 18, "brand");
-  plane.material.opacity = 0.92;
-  return plane;
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: getTextTexture(text, "guide"),
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      opacity: 0.88,
+      color: 0xffffff,
+      toneMapped: false,
+    })
+  );
+  sprite.scale.set(46, 13, 1);
+  sprite.renderOrder = 10;
+  return sprite;
 }
 
 function createDimensionLine(start, end, text, labelPosition) {
@@ -84,13 +99,17 @@ function createDimensionLine(start, end, text, labelPosition) {
     new THREE.Vector3(...end),
   ]);
 
+  const halo = new THREE.Line(
+    geometry,
+    new THREE.LineBasicMaterial({ color: EDGE, transparent: true, opacity: 0.28 })
+  );
   const line = new THREE.Line(
     geometry,
-    new THREE.LineBasicMaterial({ color: EDGE, transparent: true, opacity: 0.92 })
+    new THREE.LineBasicMaterial({ color: EDGE, transparent: true, opacity: 0.96 })
   );
 
   const group = new THREE.Group();
-  group.add(line);
+  group.add(halo, line);
   const label = createGuideLabel(text);
   label.position.set(...labelPosition);
   group.add(label);
@@ -102,10 +121,10 @@ function createPanel(width, height, depth, label) {
   const material = new THREE.MeshPhysicalMaterial({
     color: TONES[label] || 0x7c3aed,
     transparent: true,
-    opacity: 0.46,
-    transmission: 0.74,
-    roughness: 0.1,
-    thickness: 1.4,
+    opacity: 0.54,
+    transmission: 0.66,
+    roughness: 0.08,
+    thickness: 1.6,
     clearcoat: 0.95,
     clearcoatRoughness: 0.04,
   });
@@ -114,20 +133,28 @@ function createPanel(width, height, depth, label) {
   mesh.userData.label = label;
   mesh.userData.baseColor = TONES[label] || 0x7c3aed;
 
+  const edgeGeometry = new THREE.EdgesGeometry(geometry);
+  const edgesGlow = new THREE.LineSegments(
+    edgeGeometry,
+    new THREE.LineBasicMaterial({ color: EDGE, transparent: true, opacity: 0.36 })
+  );
+  edgesGlow.scale.setScalar(1.004);
   const edges = new THREE.LineSegments(
-    new THREE.EdgesGeometry(geometry),
+    edgeGeometry,
     new THREE.LineBasicMaterial({ color: EDGE, transparent: true, opacity: 1 })
   );
-  mesh.add(edges);
+  edgesGlow.renderOrder = 1;
+  edges.renderOrder = 2;
+  mesh.add(edgesGlow, edges);
 
   return mesh;
 }
 
 function addWordmarkToFront(mesh, panelWidth, panelHeight, panelDepth) {
-  const baseHeight = Math.min(panelWidth, panelHeight) * 0.15;
-  const wordmarkWidth = Math.min(panelWidth * 0.52, baseHeight * 4.4);
+  const baseHeight = Math.min(panelWidth, panelHeight) * 0.13;
+  const wordmarkWidth = Math.min(panelWidth * 0.48, baseHeight * 4.8);
   const wordmark = createEngravedPlane("Arcode", wordmarkWidth, baseHeight, "brand");
-  wordmark.position.set(0, -panelHeight * 0.03, (panelDepth / 2) + 0.7);
+  wordmark.position.set(0, panelHeight * 0.12, (panelDepth / 2) + 0.74);
   mesh.add(wordmark);
 }
 
@@ -136,10 +163,11 @@ function createDimensionText(valueA, valueB) {
 }
 
 function addPieceDimension(mesh, text, surfaceWidth, surfaceHeight, side, depth) {
-  const labelHeight = Math.min(surfaceWidth, surfaceHeight) * 0.12;
-  const labelWidth = Math.min(surfaceWidth * 0.72, labelHeight * 5.2);
-  const label = createEngravedPlane(text, labelWidth, labelHeight, "dimension");
-  const verticalOffset = -surfaceHeight * 0.1;
+  const title = mesh.userData.label || "";
+  const labelHeight = Math.min(surfaceWidth, surfaceHeight) * 0.18;
+  const labelWidth = Math.min(surfaceWidth * 0.82, Math.max(labelHeight * 6.2, surfaceWidth * 0.46));
+  const label = createEngravedPlane([title, text], labelWidth, labelHeight, "piece");
+  const verticalOffset = -surfaceHeight * 0.16;
   const inset = 0.7;
 
   if (side === "front") {
@@ -158,6 +186,7 @@ function addPieceDimension(mesh, text, surfaceWidth, surfaceHeight, side, depth)
     label.position.set(0, (depth / 2) + inset, verticalOffset);
   }
 
+  label.renderOrder = 7;
   mesh.add(label);
 }
 
@@ -342,22 +371,22 @@ export class GeradorModelo3D {
     const { largura, profundidade, altura } = calculo.medidasExternas;
     this.dimensions.add(
       createDimensionLine(
-        [-largura / 2, -14, profundidade / 2 + 22],
-        [largura / 2, -14, profundidade / 2 + 22],
+        [-largura / 2, -12, profundidade / 2 + 16],
+        [largura / 2, -12, profundidade / 2 + 16],
         "Largura",
-        [0, -24, profundidade / 2 + 22]
+        [0, -19, profundidade / 2 + 16]
       ),
       createDimensionLine(
-        [-largura / 2 - 18, -8, -profundidade / 2],
-        [-largura / 2 - 18, -8, profundidade / 2],
+        [-largura / 2 - 14, -8, -profundidade / 2],
+        [-largura / 2 - 14, -8, profundidade / 2],
         "Profundidade",
-        [-largura / 2 - 44, -18, 0]
+        [-largura / 2 - 32, -14, 0]
       ),
       createDimensionLine(
-        [-largura / 2 - 20, 0, -profundidade / 2 - 18],
-        [-largura / 2 - 20, altura, -profundidade / 2 - 18],
+        [-largura / 2 - 16, 0, -profundidade / 2 - 14],
+        [-largura / 2 - 16, altura, -profundidade / 2 - 14],
         "Altura",
-        [-largura / 2 - 44, altura / 2, -profundidade / 2 - 18]
+        [-largura / 2 - 30, altura / 2, -profundidade / 2 - 14]
       )
     );
   }
