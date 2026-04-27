@@ -3,6 +3,7 @@ import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/cont
 
 const EDGE = 0x4c1d95;
 const HIGHLIGHT = 0xc4b5fd;
+const ENGRAVE = 0x4c1d95;
 const TONES = {
   Base: 0x7c3aed,
   Frente: 0x8b5cf6,
@@ -11,6 +12,7 @@ const TONES = {
   "Lateral direita": 0x7e22ce,
   Tampa: 0xc4b5fd,
 };
+const textureCache = new Map();
 
 function drawRoundedRect(context, x, y, width, height, radius) {
   const safeRadius = Math.min(radius, width / 2, height / 2);
@@ -26,60 +28,51 @@ function drawRoundedRect(context, x, y, width, height, radius) {
   context.quadraticCurveTo(x, y, x + safeRadius, y);
 }
 
-function createLabelSprite(text) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 96;
-  const context = canvas.getContext("2d");
+function getTextTexture(text, variant = "dimension") {
+  const key = `${variant}:${text}`;
+  if (textureCache.has(key)) {
+    return textureCache.get(key);
+  }
 
-  context.fillStyle = "rgba(255,255,255,0.92)";
-  drawRoundedRect(context, 8, 8, 240, 80, 28);
-  context.fill();
-  context.strokeStyle = "rgba(111,87,217,0.20)";
-  context.lineWidth = 2;
-  context.stroke();
-  context.fillStyle = "#17171b";
-  context.font = "600 28px Segoe UI";
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillText(text, 128, 48);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
-  const sprite = new THREE.Sprite(material);
-  sprite.scale.set(68, 26, 1);
-  return sprite;
-}
-
-function createFaceWordmark(text, width, height) {
   const canvas = document.createElement("canvas");
   canvas.width = 1024;
   canvas.height = 512;
   const context = canvas.getContext("2d");
-  const fontSize = Math.round(canvas.height * 0.42);
-
   context.clearRect(0, 0, canvas.width, canvas.height);
-  context.fillStyle = "rgba(76,29,149,0.88)";
-  context.font = `700 ${fontSize}px Segoe UI`;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  if (variant === "brand") {
+    context.fillStyle = "rgba(76,29,149,0.68)";
+    context.font = "700 196px Segoe UI";
+    context.fillText(text, canvas.width / 2, canvas.height / 2);
+  } else {
+    context.fillStyle = "rgba(76,29,149,0.42)";
+    context.font = "600 120px Segoe UI";
+    context.fillText(text, canvas.width / 2, canvas.height / 2);
+  }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
-  const material = new THREE.SpriteMaterial({
-    map: texture,
+  texture.colorSpace = THREE.SRGBColorSpace;
+  textureCache.set(key, texture);
+  return texture;
+}
+
+function createEngravedPlane(text, width, height, variant = "dimension") {
+  const material = new THREE.MeshBasicMaterial({
+    map: getTextTexture(text, variant),
     transparent: true,
     depthTest: false,
     depthWrite: false,
+    opacity: variant === "brand" ? 0.7 : 0.78,
+    color: ENGRAVE,
   });
-  const sprite = new THREE.Sprite(material);
-  const baseSize = Math.min(width, height) * 0.15;
-  sprite.scale.set(baseSize * 2.8, baseSize, 1);
-  return sprite;
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
+  return plane;
 }
 
-function createDimensionLine(start, end, text) {
+function createDimensionLine(start, end) {
   const geometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(...start),
     new THREE.Vector3(...end),
@@ -90,16 +83,8 @@ function createDimensionLine(start, end, text) {
     new THREE.LineBasicMaterial({ color: EDGE, transparent: true, opacity: 0.92 })
   );
 
-  const label = createLabelSprite(text);
-  label.position.set(
-    (start[0] + end[0]) / 2,
-    (start[1] + end[1]) / 2,
-    (start[2] + end[2]) / 2
-  );
-
   const group = new THREE.Group();
   group.add(line);
-  group.add(label);
   return group;
 }
 
@@ -130,9 +115,41 @@ function createPanel(width, height, depth, label) {
 }
 
 function addWordmarkToFront(mesh, panelWidth, panelHeight, panelDepth) {
-  const wordmark = createFaceWordmark("Arcode", panelWidth, panelHeight);
-  wordmark.position.set(0, 0, (panelDepth / 2) + 0.6);
+  const baseHeight = Math.min(panelWidth, panelHeight) * 0.15;
+  const wordmarkWidth = Math.min(panelWidth * 0.52, baseHeight * 4.4);
+  const wordmark = createEngravedPlane("Arcode", wordmarkWidth, baseHeight, "brand");
+  wordmark.position.set(0, -panelHeight * 0.03, (panelDepth / 2) + 0.7);
   mesh.add(wordmark);
+}
+
+function createDimensionText(valueA, valueB) {
+  return `${Math.round(valueA)} × ${Math.round(valueB)} mm`;
+}
+
+function addPieceDimension(mesh, text, surfaceWidth, surfaceHeight, side, depth) {
+  const labelHeight = Math.min(surfaceWidth, surfaceHeight) * 0.12;
+  const labelWidth = Math.min(surfaceWidth * 0.72, labelHeight * 5.2);
+  const label = createEngravedPlane(text, labelWidth, labelHeight, "dimension");
+  const verticalOffset = -surfaceHeight * 0.1;
+  const inset = 0.7;
+
+  if (side === "front") {
+    label.position.set(0, verticalOffset, (depth / 2) + inset);
+  } else if (side === "back") {
+    label.rotation.y = Math.PI;
+    label.position.set(0, verticalOffset, -(depth / 2) - inset);
+  } else if (side === "left") {
+    label.rotation.y = -Math.PI / 2;
+    label.position.set(-(depth / 2) - inset, verticalOffset, 0);
+  } else if (side === "right") {
+    label.rotation.y = Math.PI / 2;
+    label.position.set((depth / 2) + inset, verticalOffset, 0);
+  } else if (side === "top") {
+    label.rotation.x = -Math.PI / 2;
+    label.position.set(0, (depth / 2) + inset, verticalOffset);
+  }
+
+  mesh.add(label);
 }
 
 function buildPieceMap(calculo) {
@@ -153,26 +170,61 @@ function buildPieceMap(calculo) {
       mesh: createPanel(medidasExternas.largura, espessura, medidasExternas.profundidade, "Base"),
       assembled: new THREE.Vector3(0, espessura / 2, 0),
       exploded: new THREE.Vector3(0, espessura / 2 - 18, 0),
+      dimensionText: createDimensionText(medidasExternas.largura, medidasExternas.profundidade),
+      dimensionSurface: {
+        width: medidasExternas.largura,
+        height: medidasExternas.profundidade,
+        side: "top",
+        depth: espessura,
+      },
     },
     frente: {
       mesh: createPanel(larguraFrenteFundo, alturaParede, espessura, "Frente"),
       assembled: new THREE.Vector3(0, centerY, -medidasExternas.profundidade / 2 + espessura / 2),
       exploded: new THREE.Vector3(0, centerY, -medidasExternas.profundidade / 2 - 28),
+      dimensionText: createDimensionText(larguraFrenteFundo, alturaParede),
+      dimensionSurface: {
+        width: larguraFrenteFundo,
+        height: alturaParede,
+        side: "front",
+        depth: espessura,
+      },
     },
     fundo: {
       mesh: createPanel(larguraFrenteFundo, alturaParede, espessura, "Fundo"),
       assembled: new THREE.Vector3(0, centerY, medidasExternas.profundidade / 2 - espessura / 2),
       exploded: new THREE.Vector3(0, centerY, medidasExternas.profundidade / 2 + 28),
+      dimensionText: createDimensionText(larguraFrenteFundo, alturaParede),
+      dimensionSurface: {
+        width: larguraFrenteFundo,
+        height: alturaParede,
+        side: "back",
+        depth: espessura,
+      },
     },
     lateralEsquerda: {
       mesh: createPanel(espessura, alturaParede, profundidadeLaterais, "Lateral esquerda"),
       assembled: new THREE.Vector3(-medidasExternas.largura / 2 + espessura / 2, centerY, 0),
       exploded: new THREE.Vector3(-medidasExternas.largura / 2 - 28, centerY, 0),
+      dimensionText: createDimensionText(profundidadeLaterais, alturaParede),
+      dimensionSurface: {
+        width: profundidadeLaterais,
+        height: alturaParede,
+        side: "left",
+        depth: espessura,
+      },
     },
     lateralDireita: {
       mesh: createPanel(espessura, alturaParede, profundidadeLaterais, "Lateral direita"),
       assembled: new THREE.Vector3(medidasExternas.largura / 2 - espessura / 2, centerY, 0),
       exploded: new THREE.Vector3(medidasExternas.largura / 2 + 28, centerY, 0),
+      dimensionText: createDimensionText(profundidadeLaterais, alturaParede),
+      dimensionSurface: {
+        width: profundidadeLaterais,
+        height: alturaParede,
+        side: "right",
+        depth: espessura,
+      },
     },
     ...(fechada
       ? {
@@ -180,6 +232,13 @@ function buildPieceMap(calculo) {
             mesh: createPanel(medidasExternas.largura, espessura, medidasExternas.profundidade, "Tampa"),
             assembled: new THREE.Vector3(0, medidasExternas.altura - (espessura / 2), 0),
             exploded: new THREE.Vector3(0, medidasExternas.altura + 34, 0),
+            dimensionText: createDimensionText(medidasExternas.largura, medidasExternas.profundidade),
+            dimensionSurface: {
+              width: medidasExternas.largura,
+              height: medidasExternas.profundidade,
+              side: "top",
+              depth: espessura,
+            },
           },
         }
       : {}),
@@ -275,25 +334,22 @@ export class GeradorModelo3D {
     this.dimensions.add(
       createDimensionLine(
         [-largura / 2, -14, profundidade / 2 + 22],
-        [largura / 2, -14, profundidade / 2 + 22],
-        "Largura"
+        [largura / 2, -14, profundidade / 2 + 22]
       ),
       createDimensionLine(
         [-largura / 2 - 18, -8, -profundidade / 2],
-        [-largura / 2 - 18, -8, profundidade / 2],
-        "Profundidade"
+        [-largura / 2 - 18, -8, profundidade / 2]
       ),
       createDimensionLine(
         [-largura / 2 - 20, 0, -profundidade / 2 - 18],
-        [-largura / 2 - 20, altura, -profundidade / 2 - 18],
-        "Altura"
+        [-largura / 2 - 20, altura, -profundidade / 2 - 18]
       )
     );
   }
 
   applyViewMode(mode) {
     this.viewMode = mode;
-    const exploded = mode !== "montada";
+    const exploded = mode === "explodida";
 
     Object.values(this.pieces).forEach((piece) => {
       piece.mesh.position.copy(exploded ? piece.exploded : piece.assembled);
@@ -302,18 +358,6 @@ export class GeradorModelo3D {
 
     window.clearInterval(this.sequenceTimer);
     this.sequenceTimer = null;
-
-    if (mode === "ordem") {
-      const sequence = ["base", "frente", "fundo", "lateralEsquerda", "lateralDireita", "tampa"].filter((key) => this.pieces[key]);
-      let index = 0;
-      const highlight = () => {
-        Object.values(this.pieces).forEach((piece) => setPieceVisual(piece, false));
-        setPieceVisual(this.pieces[sequence[index % sequence.length]], true);
-        index += 1;
-      };
-      highlight();
-      this.sequenceTimer = window.setInterval(highlight, 1200);
-    }
   }
 
   update(calculo, mode = this.viewMode) {
@@ -330,6 +374,16 @@ export class GeradorModelo3D {
       );
     }
     Object.entries(pieceMap).forEach(([key, piece]) => {
+      if (piece.dimensionText && piece.dimensionSurface) {
+        addPieceDimension(
+          piece.mesh,
+          piece.dimensionText,
+          piece.dimensionSurface.width,
+          piece.dimensionSurface.height,
+          piece.dimensionSurface.side,
+          piece.dimensionSurface.depth
+        );
+      }
       this.root.add(piece.mesh);
       this.pieces[key] = piece;
     });
